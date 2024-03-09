@@ -1,0 +1,12 @@
+,../mic/output/pySCENIC_discovery/second/mic0_discovery_auc_mtx_0.csv,../mic/output/pySCENIC_discovery/second/mic0_discovery_auc_mtx_1.csv,../mic/output/pySCENIC_discovery/second/mic0_discovery_auc_mtx_2.csv,../mic/output/pySCENIC_discovery/second/mic0_discovery_auc_mtx_3.csv,sum
+CYTH3,1.0,1.0,1.0,0.0,75.0
+GCH1,1.0,1.0,1.0,0.0,75.0
+GYPC,1.0,1.0,1.0,0.0,75.0
+PARP12,1.0,1.0,1.0,0.0,75.0
+GLDN,0.0,1.0,1.0,0.0,50.0
+DOCK10,0.0,0.0,0.0,1.0,25.0
+FRMD3,0.0,0.0,0.0,1.0,25.0
+LIMK2,0.0,0.0,0.0,1.0,25.0
+TRAK1,0.0,0.0,0.0,1.0,25.0
+TRIM4,0.0,1.0,0.0,0.0,25.0
+XAF1,0.0,0.0,0.0,1.0,25.0
