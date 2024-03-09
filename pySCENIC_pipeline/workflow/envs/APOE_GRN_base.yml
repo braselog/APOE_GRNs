@@ -1,0 +1,70 @@
+name: APOE_GRN_base
+channels:
+- anaconda
+- conda-forge/label/main
+- conda-forge
+- bioconda
+- defaults
+dependencies:
+- autopep8=2.0.1
+- ca-certificates=2024.2.2
+- certifi=2024.2.2
+- conda=23.3.1
+- cxx-compiler=1.0.0
+- graphviz=6.0.2
+- gseapy=0.9.5
+- imagemagick=7.1.0_57
+- ipykernel=6.21.2
+- ipython=8.9.0
+- julia=1.8.5
+- libgcc=7.2.0
+- libzlib=1.2.13
+- mamba=1.1.0
+- matplotlib=3.7.1
+- numpy=1.24.1
+- openssl=3.2.1
+- pkgconfig=1.5.5
+- python=3.11.0
+- r-base=4.2.2
+- r-essentials=4.2
+- radian=0.6.4
+- scikit-learn=1.2.2
+- seaborn=0.12.2
+- singularity=3.8.6
+- snakemake=7.25.0
+- synapseclient=2.7.0
+- upsetplot=0.8.0
+- xlsxwriter=3.1.9
+- pip:
+  - asyncssh==2.13.0
+  - atpublic==3.1.1
+  - dpath==2.1.4
+  - dvc==2.45.1
+  - dvc-data==0.40.3
+  - dvc-objects==0.19.3
+  - dvc-render==0.2.0
+  - dvc-studio-client==0.4.0
+  - dvc-task==0.1.11
+  - dvclive==2.1.0
+  - filelock==3.9.0
+  - flufl-lock==7.1.1
+  - fsspec==2023.1.0
+  - funcy==1.18
+  - grandalf==0.8
+  - hydra-core==1.3.1
+  - iterative-telemetry==0.0.7
+  - markdown-it-py==2.1.0
+  - mdurl==0.1.2
+  - orjson==3.8.6
+  - pandas==1.5.3
+  - pathspec==0.11.0
+  - pygwalker==0.1.4
+  - pyopenssl==23.1.1
+  - pytz==2022.7.1
+  - rich==13.3.1
+  - scmrepo==0.1.11
+  - smmap==5.0.0
+  - sqltrie==0.0.28
+  - tomlkit==0.11.6
+  - tqdm==4.64.1
+  - zc-lockfile==2.0

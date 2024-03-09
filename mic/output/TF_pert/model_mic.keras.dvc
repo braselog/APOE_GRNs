@@ -1,0 +1,4 @@
+outs:
+- md5: feb3e0ef8ddc333214bbe8cf604bce4a
+  size: 15239752
+  path: model_mic.keras

@@ -1,0 +1,118 @@
+import pandas as pd
+import pickle as pkl
+
+with open("../mic/data/TF_pert/gene_to_TF_dict_mic.pkl", "rb") as f:
+    mic_genesToTFs = pkl.load(f)
+
+#with open("../astro/data/TF_pert/gene_to_TF_dict_astro.pkl", "rb") as f:
+#    astro_genesToTFs = pkl.load(f)
+
+rule all:
+    input:
+        "workflow/envs/scenicplus/LICENSE.txt",
+        expand("../{cellType}/plots/perturbation_with_arrows_{cellType}{cellState}_{TF}.pdf",cellType = ['mic'],cellState = [0],TF = list(mic_genesToTFs['mic0']['APOE'].keys())),#['JUND','NFE2L1','CEBPB','IRF7','FOSL2','JUNB','THRB','GABPA']),
+
+rule prepare_scenicPlus2_environment:
+    output:
+        "workflow/envs/scenicplus/LICENSE.txt",
+    shell:"""
+        cd workflow/envs
+        rm -rf scenicplus
+        mamba env remove -n scenicPlus2
+        mamba env create -f scenicPlus.yml
+        #mamba create -n scenicPlus2 python=3.8 rust=1.70 -y
+        bash -c ". $HOME/.bashrc 
+            mamba activate scenicPlus2
+            git clone https://github.com/aertslab/scenicplus
+            cd scenicplus
+            pip install -e ."
+        cd ../..
+        ln -s $(conda env list | grep scenicPlus2 | awk '{{print $NF}}')
+    """
+
+rule prepare_Seurat_data_for_python:
+    conda: "envs/APOE_GRN_base.yml"
+    params: 
+        cellType = "{cellType}",
+    output:
+        umap = '../{cellType}/data/TF_pert/umap_{cellType}.csv',
+        cellMat = '../{cellType}/data/TF_pert/{cellType}_cellStateMat.mtx',
+        allGenes = '../{cellType}/data/TF_pert/{cellType}_all_genes.csv',
+        clusters = '../{cellType}/data/TF_pert/{cellType}_clusters.csv'
+    script: '../scripts/prepare_Seurat_data_for_python.R'
+
+rule full_umap_embeddings:
+    conda: "envs/tf.yml"
+    input:
+        geneFilt = '../{cellType}/data/pySCENIC/{cellType}_discovery_genes.csv',
+        umap = rules.prepare_Seurat_data_for_python.output.umap,
+        cellMat = rules.prepare_Seurat_data_for_python.output.cellMat,
+        allGenes = rules.prepare_Seurat_data_for_python.output.allGenes,
+        clusters = rules.prepare_Seurat_data_for_python.output.clusters,
+    output: 
+        UMAP_cell_embeddings = "../{cellType}/output/TF_pert/umap_embeddings_all_{cellType}.csv",
+        model = "../{cellType}/output/TF_pert/model_{cellType}.keras",
+        scaler = '../{cellType}/output/TF_pert/scaler_{cellType}.pkl',
+    script: "../scripts/full_umap_embeddings.py"
+
+rule TF_regressors:
+    conda: "scenicPlus2"
+    input:
+        env = rules.prepare_scenicPlus2_environment.output,
+        TFdict = "../{cellType}/data/TF_pert/gene_to_TF_dict_{cellType}.pkl",
+        cellStateMat = '../{cellType}/data/pySCENIC/{cellType}{cellState}_discovery.csv'###############################3
+    params: 
+        cellType = "{cellType}",
+        cellState = "{cellState}", 
+    output:
+        regressors = "../{cellType}/output/TF_pert/regressors_{cellType}{cellState}.pkl",
+    script: "../scripts/TF_regressors.py"
+
+rule TF_perturbation:
+    conda: "scenicPlus2"
+    input:
+        cellStateMat = '../{cellType}/data/pySCENIC/{cellType}{cellState}_discovery.csv',###############################3
+        regressors = "../{cellType}/output/TF_pert/regressors_{cellType}{cellState}.pkl",
+    params: 
+        cellType = "{cellType}",
+        cellState = "{cellState}", 
+        TF = "{TF}" #'CEBPB'
+    output:
+        perturbed_matrix = '../{cellType}/output/TF_pert/perturbation_{cellType}{cellState}_{TF}.pkl',
+        #perturbed_matrix_mtx = '../{cellType}/data/perturbation_{cellType}{cellState}_{TF}.mtx',
+    script: "../scripts/TF_perturbation.py"
+
+rule perturbation_umap_embeddings:
+    conda: "envs/tf.yml"
+    input:
+        geneFilt = rules.full_umap_embeddings.input.geneFilt,
+        umap = rules.prepare_Seurat_data_for_python.output.umap,
+        cellMat = rules.prepare_Seurat_data_for_python.output.cellMat,
+        allGenes = rules.prepare_Seurat_data_for_python.output.allGenes,
+        clusters = rules.prepare_Seurat_data_for_python.output.clusters,
+        pertMat = rules.TF_perturbation.output.perturbed_matrix,
+        scaler = rules.full_umap_embeddings.output.scaler,
+        model = rules.full_umap_embeddings.output.model
+    params: 
+        cellState = "{cellState}",
+    output: 
+        perturbed_cell_embeddings = '../{cellType}/output/TF_pert/perturbed_cell_embeddings_{cellType}{cellState}_{TF}.csv',
+        plot = '../{cellType}/plots/UMAP_plot_{cellType}{cellState}_{TF}.pdf'
+    script: "../scripts/perturbation_umap_embeddings.py"
+
+rule TF_plot:
+    conda: "scenicPlus2"
+    input:
+        pertEmbed = rules.perturbation_umap_embeddings.output.perturbed_cell_embeddings,
+        fullEmbed = rules.full_umap_embeddings.output.UMAP_cell_embeddings,
+        cellStateMat = '../{cellType}/data/pySCENIC/{cellType}{cellState}_discovery.csv',###############################3
+        perturbed_matrix = '../{cellType}/output/TF_pert/perturbation_{cellType}{cellState}_{TF}.pkl',
+        clusters = rules.prepare_Seurat_data_for_python.output.clusters,
+    params: 
+        cellType = "{cellType}",
+        cellState = "{cellState}", 
+        TF = "{TF}" #'CEBPB'
+    output:
+        delta_matrix = '../{cellType}/output/TF_pert/delta_{cellType}{cellState}_{TF}.pkl',
+        plot = '../{cellType}/plots/perturbation_with_arrows_{cellType}{cellState}_{TF}.pdf'
+    script: "../scripts/TF_plot.py"

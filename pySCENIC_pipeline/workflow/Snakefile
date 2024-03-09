@@ -1,0 +1,122 @@
+#seed = range(100) #full run
+seed = range(4) #test
+
+
+rule all:
+    input:
+        one = expand('../{cellType}/data/pySCENIC/{cellType}{cellState}_{study}.csv', cellType = ['mic'],cellState = [0],study = ['discovery','replication']),
+        two = expand('../{cellType}/output/pySCENIC_{study}/second/{cellType}{cellState}_{study}_regulons_{seed}.pkl',seed = seed,cellType = ['mic'],cellState = [0],study = ['discovery','replication']),
+        tf_lists = expand('../{cellType}/output/pySCENIC_{study}/second/{cellType}{cellState}_{study}_TF_list.csv',cellType = ['mic'],cellState = [0],study = ['discovery','replication']),
+        four = expand('../{cellType}/output/pySCENIC_discovery/targetGenes_{cellType}{cellState}/complete.txt',cellType = ['mic'],cellState = [0]),
+        five = expand("../{cellType}/data/TF_pert/gene_to_TF_dict_{cellType}.pkl",cellType = ['mic']),
+
+rule subset_expression_matrix_discovery:
+    conda: "envs/APOE_GRN_base.yml"
+    params:
+        cellType = '{cellType}',
+        cellState = '{cellState}',
+        study = 'discovery',
+    output: 
+        subset = '../{cellType}/data/pySCENIC/{cellType}{cellState}_discovery.csv',
+    script: '../scripts/subset_expression_matrix.R'
+
+rule make_gene_list:
+    conda: "envs/APOE_GRN_base.yml"
+    input:
+        subset = '../{cellType}/data/pySCENIC/{cellType}0_discovery.csv'
+    output:
+        geneList = '../{cellType}/data/pySCENIC/{cellType}_discovery_genes.csv'
+    script: '../scripts/make_gene_list.R'
+
+rule subset_expression_matrix_replication:
+    conda: "envs/APOE_GRN_base.yml"
+    input:
+        geneList = rules.make_gene_list.output.geneList
+    params:
+        cellType = '{cellType}',
+        cellState = '{cellState}',
+        study = 'replication',
+    output: 
+        subset = '../{cellType}/data/pySCENIC/{cellType}{cellState}_replication.csv'
+    script: '../scripts/subset_expression_matrix.R'
+
+rule run_pySCENIC_first: #this is called 100 times, twice for each cell type
+    conda: 'pySCENIC.yml'
+    input: 
+        expMat =  '../{cellType}/data/pySCENIC/{cellType}{cellState}_discovery.csv',
+    params:
+        seed = '{seed}',
+        run = 'first'
+    output: 
+        regulon_file = '../{cellType}/output/pySCENIC_discovery/first/{cellType}{cellState}_discovery_regulons_{seed}.pkl',
+        motif_file = '../{cellType}/output/pySCENIC_discovery/first/{cellType}{cellState}_discovery_motifs_{seed}.csv',
+        auc_file = '../{cellType}/output/pySCENIC_discovery/first/{cellType}{cellState}_discovery_auc_mtx_{seed}.csv',
+    script: '../scripts/run_pySCENIC.py'
+
+def get_auc_files1(wildcards):
+    return ['../{cellType}/output/pySCENIC_discovery/first/{cellType}{cellState}_discovery_auc_mtx_'+str(s)+'.csv' for s in seed]
+
+rule filter_TFs_first:
+    conda: "envs/APOE_GRN_base.yml"
+    input: 
+        auc_mtx_files = get_auc_files1
+    params:
+        run = 'first'
+    output:
+        stateTFs_onehot = '../{cellType}/output/pySCENIC_discovery/first/{cellType}{cellState}_discovery_TFs.csv',
+        stateTFs = '../{cellType}/output/pySCENIC_discovery/first/{cellType}{cellState}_discovery_TF_list.csv'
+    script:
+        '../scripts/filter_TFs.py'
+
+rule run_pySCENIC_second: #this is called 100 times, twice for each cell type
+    conda: 'pySCENIC.yml'
+    input: 
+        expMat =  '../{cellType}/data/pySCENIC/{cellType}{cellState}_{study}.csv',
+        stateTFs = rules.filter_TFs_first.output.stateTFs ############################
+    params:
+        seed = '{seed}',
+        run = 'second'
+    output: 
+        regulon_file = '../{cellType}/output/pySCENIC_{study}/second/{cellType}{cellState}_{study}_regulons_{seed}.pkl',
+        motif_file = '../{cellType}/output/pySCENIC_{study}/second/{cellType}{cellState}_{study}_motifs_{seed}.csv',
+        auc_file = '../{cellType}/output/pySCENIC_{study}/second/{cellType}{cellState}_{study}_auc_mtx_{seed}.csv',
+    script: '../scripts/run_pySCENIC.py'
+
+def get_auc_files2(wildcards):
+    return ['../{cellType}/output/pySCENIC_{study}/second/{cellType}{cellState}_{study}_auc_mtx_'+str(s)+'.csv' for s in seed]
+
+checkpoint filter_TFs_second:
+    conda: "envs/APOE_GRN_base.yml"
+    input: 
+        auc_mtx_files = get_auc_files2
+    params:
+        run = 'second'
+    output:
+        stateTFs_onehot = '../{cellType}/output/pySCENIC_{study}/second/{cellType}{cellState}_{study}_TFs.csv',
+        stateTFs = '../{cellType}/output/pySCENIC_{study}/second/{cellType}{cellState}_{study}_TF_list.csv'
+    script:
+        '../scripts/filter_TFs.py'
+
+def get_auc_files3(wildcards):
+    return ['../{cellType}/output/pySCENIC_discovery/second/{cellType}{cellState}_discovery_auc_mtx_'+str(s)+'.csv' for s in seed]
+def get_regulon_files(wildcards):
+    return ['../{cellType}/output/pySCENIC_discovery/second/{cellType}{cellState}_discovery_regulons_'+str(s)+'.pkl' for s in seed]
+
+rule create_target_gene_files:
+    conda: 'pySCENIC.yml'
+    input: 
+        TFs_discovery = '../{cellType}/output/pySCENIC_discovery/second/{cellType}{cellState}_discovery_TFs.csv',
+        TFs_replication = '../{cellType}/output/pySCENIC_replication/second/{cellType}{cellState}_replication_TFs.csv',
+        auc_mtx_files = get_auc_files3,
+        regulon_files = get_regulon_files
+    params:
+        outFilePath = '../{cellType}/output/pySCENIC_discovery/targetGenes_{cellType}{cellState}/'
+    output: '../{cellType}/output/pySCENIC_discovery/targetGenes_{cellType}{cellState}/complete.txt'
+    script: '../scripts/create_target_gene_files.py'
+
+rule create_gene_to_TF_dict:
+    conda: "envs/APOE_GRN_base.yml"
+    input: 
+        TF_list = rules.all.input.tf_lists,
+    output: "../{cellType}/data/TF_pert/gene_to_TF_dict_{cellType}.pkl"
+    script: "../scripts/create_gene_to_TF_dict.py"

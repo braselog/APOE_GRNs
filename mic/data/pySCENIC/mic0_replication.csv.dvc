@@ -1,0 +1,4 @@
+outs:
+- md5: a1128f1181c5cb59863db5b0d2dabf7a
+  size: 28443270
+  path: mic0_replication.csv
